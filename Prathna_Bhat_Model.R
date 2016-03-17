@@ -131,25 +131,24 @@ intern_profile_ind_tab<-train_test_internship_student_exp[,c("Internship_ID","St
 agg_intern_profile_ind_tab<-aggregate( intern_profile_ind_tab[,3], intern_profile_ind_tab[,1:2], FUN = sum )
 names(agg_intern_profile_ind_tab)=c("Internship_ID","Student_ID","intern_profile_count")
 
-#Save the outputs for further use
-write.csv(agg_intern_profile_ind_tab,"agg_intern_profile_ind_tab.csv",row.names=F)
-write.csv(agg_skills_req_ind_tab,"agg_skills_req_ind_tab.csv",row.names=F)
 
 #Removing duplicate students by ranking them on rrencent experience
 #Formatting Date
+df<-student_data
 df$Start.Date<-as.Date(as.POSIXct(df$Start.Date,format="%d-%m-%Y"))
 #order based on Start.Date
-df=student_data
-df$rank<-ave(xtfrm(as.Date(df$Start.Date)),df$Student_ID,df$Internship_ID ,FUN=function(x) order(x,decreasing=T) ) 
-datdf<-df %>% group_by(Student_ID,Internship_ID) %>%
-  mutate(rank = rank(Start.Date),decreasing=T) %>%
-  arrange(Start.Date)
+df$rank<-ave(xtfrm(as.Date(df$Start.Date)),df$Student_ID ,FUN=function(x) order(x,decreasing=T) ) 
 
 #Keep only unique students based on Rank
 new_student_data<-df[df$rank==1,]
-new_student_data<-merge(new_student_data,agg_profile_ind_tab,by=c("Student_ID","Internship_ID"),all.x=T)
 
-final_data<-merge(train_test_internship,new_student_data,by="Student_ID")
+fin1<-merge(train_test_internship,new_student_data,by=c("Student_ID"),all.x=T)
+fin1<-merge(fin1,agg_profile_ind_tab,by=c("Student_ID","Internship_ID"),all.x=T)
+fin1<-merge(fin1,agg_intern_profile_ind_tab,by=c("Student_ID","Internship_ID"),all.x=T)
+fin1<-merge(fin1,agg_skills_req_ind_tab,by=c("Student_ID","Internship_ID"),all.x=T)
+
+final_data=fin1
+names(final_data)
 
 ########################################Model Building##################################
 #Two Seperate mdelels for Students with experience and no experience as these students 
@@ -164,7 +163,7 @@ final_data_exp$location_ind2 <- ifelse(as.character(final_data_exp$hometown) == 
 final_data_exp$location_ind3 <- ifelse(as.character(final_data_exp$Location) == as.character(final_data_exp$Preferred_location),1,0 )
 
 #columns not required for modelling
-remove_column=c("Start.Date","End.Date","Start_Date","Earliest_Start_Date")
+remove_column=c("Start.Date","End.Date","Start_Date","Earliest_Start_Date","rank")
 final_data_exp=final_data_exp[,-match(remove_column,names(final_data_exp))]
 
 #Convert factors to charcters and then back to factors to avoid mis match in train and test set
@@ -239,7 +238,7 @@ final_data_noexp$location_ind <- ifelse(as.character(final_data_noexp$Institute_
 final_data_noexp$location_ind2 <- ifelse(as.character(final_data_noexp$hometown) == as.character(final_data_noexp$Preferred_location),1,0 )
 
 remove_column=c("Start.Date","End.Date","Start_Date","Earliest_Start_Date"
-                ,"Profile_count","Profile","Location","Experience_Type")
+                ,"Profile_count","Profile","Location","Experience_Type","rank")
 final_data_noexp=final_data_noexp[,-match(remove_column,names(final_data_noexp))]
 
 #Convert factors to charcters and then back to factors to avoid mis match in train and test set
@@ -307,4 +306,5 @@ submission=data.frame(rbind(
           ,"Student_ID"=final_data_exp_test$Student_ID
           ,Is_Shortlisted=final_exp_predictions)
 ))
+
 write.csv(submission, "Submission/code7.csv", row.names=F)
